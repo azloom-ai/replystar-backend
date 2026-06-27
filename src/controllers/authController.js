@@ -72,14 +72,14 @@ const getProfile = async (req, res) => {
 };
 
 const updateProfile = async (req, res) => {
-  const { name, business_name, business_type, ai_tone } = req.body;
+  const { name, business_name, business_type, ai_tone, google_url } = req.body;
   try {
     await pool.query(
-      'UPDATE businesses SET name = ?, business_name = ?, business_type = ?, ai_tone = ? WHERE id = ?',
-      [name, business_name, business_type, ai_tone, req.businessId]
+      'UPDATE businesses SET name = ?, business_name = ?, business_type = ?, ai_tone = ?, google_url = ? WHERE id = ?',
+      [name, business_name, business_type, ai_tone, google_url, req.businessId]
     );
     const [rows] = await pool.query(
-      'SELECT id, name, email, business_name, business_type, link_slug, plan, ai_tone FROM businesses WHERE id = ?',
+      'SELECT id, name, email, business_name, business_type, link_slug, plan, ai_tone, google_url FROM businesses WHERE id = ?',
       [req.businessId]
     );
     res.json(rows[0]);

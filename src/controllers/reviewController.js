@@ -14,10 +14,10 @@ const submitReview = async (req, res) => {
   }
 
   try {
-    const [rows] = await pool.query('SELECT id, push_token FROM businesses WHERE link_slug = ?', [slug]);
+    const [rows] = await pool.query('SELECT id, push_token, google_url FROM businesses WHERE link_slug = ?', [slug]);
     if (rows.length === 0) return res.status(404).json({ message: 'Negocio no encontrado' });
 
-    const { id: businessId, push_token } = rows[0];
+    const { id: businessId, push_token, google_url } = rows[0];
     const isPublic = rating >= 4 ? 1 : 0;
 
     await pool.query(
