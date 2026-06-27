@@ -4,6 +4,7 @@ const cors = require('cors');
 
 const authRoutes = require('./routes/auth');
 const reviewRoutes = require('./routes/reviews');
+const reviewPageRoutes = require('./routes/review-page');
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/r', reviewPageRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok', app: 'Replystar API' }));
 
