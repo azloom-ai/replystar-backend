@@ -58,6 +58,7 @@ const login = async (req, res) => {
         plan: business.plan,
         ai_tone: business.ai_tone,
         google_url: business.google_url,
+        auto_reply: business.auto_reply,
       },
     });
   } catch (err) {
@@ -79,14 +80,14 @@ const getProfile = async (req, res) => {
 };
 
 const updateProfile = async (req, res) => {
-  const { name, business_name, business_type, ai_tone, google_url } = req.body;
+  const { name, business_name, business_type, ai_tone, google_url, auto_reply } = req.body;
   try {
     await pool.query(
-      'UPDATE businesses SET name = ?, business_name = ?, business_type = ?, ai_tone = ?, google_url = ? WHERE id = ?',
-      [name, business_name, business_type, ai_tone, google_url, req.businessId]
+      'UPDATE businesses SET name = ?, business_name = ?, business_type = ?, ai_tone = ?, google_url = ?, auto_reply = ? WHERE id = ?',
+      [name, business_name, business_type, ai_tone, google_url, auto_reply ? 1 : 0, req.businessId]
     );
     const [rows] = await pool.query(
-      'SELECT id, name, email, business_name, business_type, link_slug, plan, ai_tone, google_url FROM businesses WHERE id = ?',
+      'SELECT id, name, email, business_name, business_type, link_slug, plan, ai_tone, google_url, auto_reply FROM businesses WHERE id = ?',
       [req.businessId]
     );
     res.json(rows[0]);

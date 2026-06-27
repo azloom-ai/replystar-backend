@@ -14,16 +14,48 @@ const submitReview = async (req, res) => {
   }
 
   try {
-    const [rows] = await pool.query('SELECT id, push_token, google_url FROM businesses WHERE link_slug = ?', [slug]);
+    const [rows] = await pool.query('SELECT id, push_token, google_url, auto_reply, business_name, ai_tone FROM businesses WHERE link_slug = ?', [slug]);
     if (rows.length === 0) return res.status(404).json({ message: 'Negocio no encontrado' });
 
-    const { id: businessId, push_token, google_url } = rows[0];
+    const { id: businessId, push_token, google_url, auto_reply, business_name, ai_tone } = rows[0];
     const isPublic = rating >= 4 ? 1 : 0;
 
-    await pool.query(
+    const [insertResult] = await pool.query(
       'INSERT INTO reviews (business_id, reviewer_name, rating, comment, is_public) VALUES (?, ?, ?, ?, ?)',
       [businessId, reviewer_name || 'Anónimo', rating, comment, isPublic]
     );
+
+    if (auto_reply) {
+      try {
+        const tone = ai_tone || 'profesional y amigable';
+        const stars = '⭐'.repeat(rating);
+        const prompt = `Eres el dueño o gerente de "${business_name}". Un cliente llamado ${reviewer_name || 'Anónimo'} dejó una reseña con ${rating} estrellas (${stars}).
+
+Reseña: "${comment || 'Sin comentario'}"
+
+Escribe una respuesta ${tone}. La respuesta debe:
+- Sonar humana y natural, no robótica
+- Ser personalizada según lo que dice la reseña
+- Si es positiva: agradecer calurosamente y mencionar algo específico
+- Si es negativa: disculparse sinceramente y ofrecer solución
+- Máximo 3-4 oraciones
+- No uses frases genéricas como "Estimado cliente"
+- Firma como el equipo de ${business_name}`;
+
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 200,
+        });
+        const aiReply = completion.choices[0].message.content.trim();
+        await pool.query(
+          'UPDATE reviews SET reply = ?, replied = 1, reply_at = NOW() WHERE id = ?',
+          [aiReply, insertResult.insertId]
+        );
+      } catch (aiErr) {
+        console.error('Auto-reply error:', aiErr.message);
+      }
+    }
 
     if (push_token && Expo.isExpoPushToken(push_token)) {
       const stars = '⭐'.repeat(rating);
