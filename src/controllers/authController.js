@@ -89,6 +89,20 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const changePassword = async (req, res) => {
+  const { current, newPassword } = req.body;
+  try {
+    const [rows] = await pool.query('SELECT password FROM businesses WHERE id = ?', [req.businessId]);
+    const valid = await bcrypt.compare(current, rows[0].password);
+    if (!valid) return res.status(401).json({ message: 'Contraseña actual incorrecta' });
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE businesses SET password = ? WHERE id = ?', [hashed, req.businessId]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Error del servidor' });
+  }
+};
+
 const savePushToken = async (req, res) => {
   const { token } = req.body;
   try {
