@@ -51,6 +51,7 @@ const login = async (req, res) => {
         link_slug: business.link_slug,
         plan: business.plan,
         ai_tone: business.ai_tone,
+        google_url: business.google_url,
       },
     });
   } catch (err) {
