@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getProfile, updateProfile, savePushToken, changePassword } = require('../controllers/authController');
+const { register, login, getProfile, updateProfile, savePushToken, changePassword, forgotPassword, resetPassword } = require('../controllers/authController');
 const authMiddleware = require('../middleware/auth');
 
 router.post('/register', register);
@@ -9,5 +9,7 @@ router.get('/profile', authMiddleware, getProfile);
 router.put('/profile', authMiddleware, updateProfile);
 router.post('/push-token', authMiddleware, savePushToken);
 router.post('/change-password', authMiddleware, changePassword);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 module.exports = router;

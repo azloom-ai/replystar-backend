@@ -1,7 +1,13 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
+const nodemailer = require('nodemailer');
 const pool = require('../config/database');
+
+const mailer = nodemailer.createTransport({
+  service: 'gmail',
+  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+});
 
 const register = async (req, res) => {
   const { name, email, password, business_name, business_type } = req.body;
@@ -89,6 +95,51 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const [rows] = await pool.query('SELECT id, name FROM businesses WHERE email = ?', [email]);
+    if (rows.length === 0) return res.status(404).json({ message: 'Email no encontrado' });
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date(Date.now() + 15 * 60 * 1000);
+    await pool.query('UPDATE businesses SET reset_code = ?, reset_code_expires = ? WHERE email = ?', [code, expires, email]);
+    await mailer.sendMail({
+      from: `"Replystar" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Tu código para restablecer contraseña',
+      html: `<div style="font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:32px;background:#f9f9f9;border-radius:12px">
+        <h2 style="color:#7c3aed">Replystar</h2>
+        <p>Hola ${rows[0].name}, recibimos una solicitud para restablecer tu contraseña.</p>
+        <div style="background:#fff;border:2px solid #7c3aed;border-radius:12px;padding:24px;text-align:center;margin:24px 0">
+          <p style="color:#666;margin:0 0 8px">Tu código es:</p>
+          <h1 style="color:#7c3aed;font-size:48px;margin:0;letter-spacing:8px">${code}</h1>
+          <p style="color:#999;font-size:12px;margin:8px 0 0">Válido por 15 minutos</p>
+        </div>
+        <p style="color:#999;font-size:12px">Si no solicitaste esto, ignorá este email.</p>
+      </div>`,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Error enviando email', error: err.message });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  const { email, code, newPassword } = req.body;
+  try {
+    const [rows] = await pool.query('SELECT reset_code, reset_code_expires FROM businesses WHERE email = ?', [email]);
+    if (rows.length === 0) return res.status(404).json({ message: 'Email no encontrado' });
+    const { reset_code, reset_code_expires } = rows[0];
+    if (reset_code !== code) return res.status(400).json({ message: 'Código incorrecto' });
+    if (new Date() > new Date(reset_code_expires)) return res.status(400).json({ message: 'Código expirado' });
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE businesses SET password = ?, reset_code = NULL, reset_code_expires = NULL WHERE email = ?', [hashed, email]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Error del servidor' });
+  }
+};
+
 const changePassword = async (req, res) => {
   const { current, newPassword } = req.body;
   try {
@@ -113,4 +164,4 @@ const savePushToken = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getProfile, updateProfile, savePushToken };
+module.exports = { register, login, getProfile, updateProfile, savePushToken, changePassword, forgotPassword, resetPassword };
