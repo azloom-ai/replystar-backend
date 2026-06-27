@@ -1,5 +1,7 @@
 const pool = require('../config/database');
 const OpenAI = require('openai');
+const { Expo } = require('expo-server-sdk');
+const expo = new Expo();
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -12,16 +14,26 @@ const submitReview = async (req, res) => {
   }
 
   try {
-    const [rows] = await pool.query('SELECT id FROM businesses WHERE link_slug = ?', [slug]);
+    const [rows] = await pool.query('SELECT id, push_token FROM businesses WHERE link_slug = ?', [slug]);
     if (rows.length === 0) return res.status(404).json({ message: 'Negocio no encontrado' });
 
-    const businessId = rows[0].id;
+    const { id: businessId, push_token } = rows[0];
     const isPublic = rating >= 4 ? 1 : 0;
 
     await pool.query(
       'INSERT INTO reviews (business_id, reviewer_name, rating, comment, is_public) VALUES (?, ?, ?, ?, ?)',
       [businessId, reviewer_name || 'Anónimo', rating, comment, isPublic]
     );
+
+    if (push_token && Expo.isExpoPushToken(push_token)) {
+      const stars = '⭐'.repeat(rating);
+      await expo.sendPushNotificationsAsync([{
+        to: push_token,
+        title: `Nueva reseña ${stars}`,
+        body: reviewer_name ? `${reviewer_name}: "${comment || 'Sin comentario'}"` : `"${comment || 'Sin comentario'}"`,
+        sound: 'default',
+      }]);
+    }
 
     res.json({ message: 'Reseña enviada', redirect_to_google: isPublic });
   } catch (err) {

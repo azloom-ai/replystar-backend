@@ -72,16 +72,30 @@ const getProfile = async (req, res) => {
 };
 
 const updateProfile = async (req, res) => {
-  const { business_name, business_type, ai_tone } = req.body;
+  const { name, business_name, business_type, ai_tone } = req.body;
   try {
     await pool.query(
-      'UPDATE businesses SET business_name = ?, business_type = ?, ai_tone = ? WHERE id = ?',
-      [business_name, business_type, ai_tone, req.businessId]
+      'UPDATE businesses SET name = ?, business_name = ?, business_type = ?, ai_tone = ? WHERE id = ?',
+      [name, business_name, business_type, ai_tone, req.businessId]
     );
-    res.json({ message: 'Perfil actualizado' });
+    const [rows] = await pool.query(
+      'SELECT id, name, email, business_name, business_type, link_slug, plan, ai_tone FROM businesses WHERE id = ?',
+      [req.businessId]
+    );
+    res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ message: 'Error del servidor', error: err.message });
   }
 };
 
-module.exports = { register, login, getProfile, updateProfile };
+const savePushToken = async (req, res) => {
+  const { token } = req.body;
+  try {
+    await pool.query('UPDATE businesses SET push_token = ? WHERE id = ?', [token, req.businessId]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Error del servidor' });
+  }
+};
+
+module.exports = { register, login, getProfile, updateProfile, savePushToken };
