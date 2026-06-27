@@ -69,7 +69,7 @@ const login = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, email, business_name, business_type, link_slug, plan, ai_tone, created_at FROM businesses WHERE id = ?',
+      'SELECT id, name, email, business_name, business_type, link_slug, plan, ai_tone, google_url, auto_reply, created_at FROM businesses WHERE id = ?',
       [req.businessId]
     );
     if (rows.length === 0) return res.status(404).json({ message: 'Negocio no encontrado' });
