@@ -48,7 +48,7 @@ router.get('/:slug', async (req, res) => {
 <body>
   <div class="card">
     <div id="form-section">
-      <div class="logo">⭐</div>
+      <div class="logo">⭐⭐⭐</div>
       <div class="business">${business_name}</div>
       <div class="type">${business_type || ''}</div>
       <span class="label">¿Cómo calificás tu experiencia?</span>
