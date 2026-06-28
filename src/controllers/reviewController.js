@@ -1,13 +1,19 @@
 const pool = require('../config/database');
 const OpenAI = require('openai');
 const { Expo } = require('expo-server-sdk');
+const nodemailer = require('nodemailer');
 const expo = new Expo();
+
+const mailer = nodemailer.createTransport({
+  service: 'gmail',
+  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+});
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const submitReview = async (req, res) => {
   const { slug } = req.params;
-  const { reviewer_name, rating, comment } = req.body;
+  const { reviewer_name, rating, comment, reviewer_email } = req.body;
 
   if (!rating || rating < 1 || rating > 5) {
     return res.status(400).json({ message: 'Calificación inválida' });
@@ -21,8 +27,8 @@ const submitReview = async (req, res) => {
     const isPublic = rating >= 4 ? 1 : 0;
 
     const [insertResult] = await pool.query(
-      'INSERT INTO reviews (business_id, reviewer_name, rating, comment, is_public) VALUES (?, ?, ?, ?, ?)',
-      [businessId, reviewer_name || 'Anónimo', rating, comment, isPublic]
+      'INSERT INTO reviews (business_id, reviewer_name, rating, comment, is_public, reviewer_email) VALUES (?, ?, ?, ?, ?, ?)',
+      [businessId, reviewer_name || 'Anónimo', rating, comment, isPublic, reviewer_email || null]
     );
 
     if (auto_reply) {
@@ -52,6 +58,24 @@ Escribe una respuesta ${tone}. La respuesta debe:
           'UPDATE reviews SET reply = ?, replied = 1, reply_at = NOW() WHERE id = ?',
           [aiReply, insertResult.insertId]
         );
+
+        if (reviewer_email && process.env.EMAIL_USER) {
+          try {
+            await mailer.sendMail({
+              from: `"${business_name}" <${process.env.EMAIL_USER}>`,
+              to: reviewer_email,
+              subject: `Gracias por tu reseña en ${business_name}`,
+              html: `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;background:#f9f9f9;border-radius:12px">
+                <h2 style="color:#7c3aed">Hola ${reviewer_name || ''}!</h2>
+                <p style="color:#444;line-height:1.6">Gracias por tomarte el tiempo de dejarnos tu reseña. Acá va nuestra respuesta:</p>
+                <div style="background:#fff;border-left:4px solid #7c3aed;padding:16px;border-radius:8px;margin:20px 0;color:#333;line-height:1.6">${aiReply}</div>
+                <p style="color:#888;font-size:13px">Con cariño, el equipo de ${business_name}</p>
+              </div>`,
+            });
+          } catch (mailErr) {
+            console.error('Email error:', mailErr.message);
+          }
+        }
       } catch (aiErr) {
         console.error('Auto-reply error:', aiErr.message);
       }
@@ -192,4 +216,18 @@ const getStats = async (req, res) => {
   }
 };
 
-module.exports = { submitReview, getReviews, replyReview, generateAIReply, getStats };
+const getLeads = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, reviewer_name, reviewer_email, rating, comment, created_at
+       FROM reviews WHERE business_id = ? AND reviewer_email IS NOT NULL
+       ORDER BY created_at DESC`,
+      [req.businessId]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ message: 'Error del servidor', error: err.message });
+  }
+};
+
+module.exports = { submitReview, getReviews, replyReview, generateAIReply, getStats, getLeads };
