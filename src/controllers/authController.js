@@ -80,12 +80,23 @@ const getProfile = async (req, res) => {
 };
 
 const updateProfile = async (req, res) => {
-  const { name, business_name, business_type, ai_tone, google_url, auto_reply } = req.body;
+  const { name, business_name, business_type, ai_tone, google_url, auto_reply, link_slug } = req.body;
   try {
-    await pool.query(
-      'UPDATE businesses SET name = ?, business_name = ?, business_type = ?, ai_tone = ?, google_url = ?, auto_reply = ? WHERE id = ?',
-      [name, business_name, business_type, ai_tone, google_url, auto_reply ? 1 : 0, req.businessId]
-    );
+    if (link_slug !== undefined) {
+      const clean = link_slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
+      if (clean.length < 3) return res.status(400).json({ message: 'El link debe tener al menos 3 caracteres' });
+      const [existing] = await pool.query('SELECT id FROM businesses WHERE link_slug = ? AND id != ?', [clean, req.businessId]);
+      if (existing.length > 0) return res.status(400).json({ message: 'Ese link ya está en uso, elegí otro' });
+      await pool.query(
+        'UPDATE businesses SET name = ?, business_name = ?, business_type = ?, ai_tone = ?, google_url = ?, auto_reply = ?, link_slug = ? WHERE id = ?',
+        [name, business_name, business_type, ai_tone, google_url, auto_reply ? 1 : 0, clean, req.businessId]
+      );
+    } else {
+      await pool.query(
+        'UPDATE businesses SET name = ?, business_name = ?, business_type = ?, ai_tone = ?, google_url = ?, auto_reply = ? WHERE id = ?',
+        [name, business_name, business_type, ai_tone, google_url, auto_reply ? 1 : 0, req.businessId]
+      );
+    }
     const [rows] = await pool.query(
       'SELECT id, name, email, business_name, business_type, link_slug, plan, ai_tone, google_url, auto_reply FROM businesses WHERE id = ?',
       [req.businessId]
