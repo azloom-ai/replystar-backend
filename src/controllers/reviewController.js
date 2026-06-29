@@ -5,7 +5,9 @@ const nodemailer = require('nodemailer');
 const expo = new Expo();
 
 const mailer = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
@@ -73,7 +75,7 @@ Escribe una respuesta ${tone}. La respuesta debe:
               </div>`,
             });
           } catch (mailErr) {
-            console.error('Email error:', mailErr.message);
+            console.error('EMAIL ERROR:', mailErr.message, mailErr.code);
           }
         }
       } catch (aiErr) {
